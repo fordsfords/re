@@ -170,7 +170,7 @@ void re_free(re_t *re)
 }  /* re_free */
 
 
-int re_match(re_t *re, const char* text)
+int re_match(re_t *re, const char* text, int *idx_out, int *len_out)
 {
   regex_t *re_compiled = re->re_compiled;
   int matchlength = 0;
@@ -179,7 +179,14 @@ int re_match(re_t *re, const char* text)
 
   if (re_compiled[0].type == BEGIN)
   {
-    return matchpattern(&re_compiled[1], text, &matchlength);
+    if (matchpattern(&re_compiled[1], text, &matchlength))
+    {
+      if (idx_out) *idx_out = 0;
+      if (len_out) *len_out = matchlength;
+      return 1;
+    }
+    else
+      return 0;
   }
   else
   {
@@ -191,9 +198,12 @@ int re_match(re_t *re, const char* text)
 
       if (matchpattern(re_compiled, text, &matchlength))
       {
-        if (text[0] == '\0')
+        if (text[0] == '\0') {
           return 0;
+        }
 
+        if (idx_out) *idx_out = idx;
+        if (len_out) *len_out = matchlength;
         return 1;
       }
     }

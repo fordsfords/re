@@ -57,7 +57,7 @@ void re_free(re_t *re);
 
 
 /* Find matches of the compiled pattern inside text. */
-int re_match(re_t *re, const char* text);
+int re_match(re_t *re, const char* text, int *idx_out, int *len_out);
 
 #ifdef __cplusplus
 }
