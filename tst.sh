@@ -1,5 +1,5 @@
 #!/bin/bash
-# tst.sh - Sunny-day test for dual_cap.
+# tst.sh
 
 ./bld.sh;  if [ "$?" -ne 0 ]; then exit; fi
 

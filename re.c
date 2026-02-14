@@ -16,12 +16,18 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+/* Simple error handling. */
+#define E(e_expr_) do { \
+  if (e_expr_) { \
+    fprintf(stderr, "ERROR [%s:%d]: '%s'\n", __FILE__, __LINE__, #e_expr_); \
+    exit(1); \
+  } \
+} while (0)
+
 /* Definitions: */
 
-#define MAX_CHAR_CLASS_LEN      40    /* Max length of character-class buffer in.   */
 
-
-enum { UNUSED, DOT, BEGIN, END, QUESTIONMARK, STAR, PLUS, CHAR, CHAR_CLASS, INV_CHAR_CLASS, DIGIT, NOT_DIGIT, ALPHA, NOT_ALPHA, WHITESPACE, NOT_WHITESPACE, /* BRANCH */ };
+enum { UNUSED, DOT, BEGIN, END, QUESTIONMARK, STAR, PLUS, CHAR, CHAR_CLASS, INV_CHAR_CLASS, DIGIT, NOT_DIGIT, ALPHA, NOT_ALPHA, WHITESPACE, NOT_WHITESPACE };
 
 
 /* Private function declarations: */
@@ -46,7 +52,8 @@ re_t *re_compile(const char* pattern, int max_regexp_objects)
   re->max_regexp_objects = max_regexp_objects;
   re->re_compiled = re_compiled;
 
-  unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
+  unsigned char *ccl_buf = re->ccl_buf;
+  ccl_buf[0] = '\0';
   int ccl_bufidx = 1;
 
   char c;     /* current char in pattern   */
@@ -66,42 +73,31 @@ re_t *re_compile(const char* pattern, int max_regexp_objects)
       case '*': {    re_compiled[j].type = STAR;            } break;
       case '+': {    re_compiled[j].type = PLUS;            } break;
       case '?': {    re_compiled[j].type = QUESTIONMARK;    } break;
-/*    case '|': {    re_compiled[j].type = BRANCH;          } break; <-- not working properly */
 
       /* Escaped character-classes (\s \w ...): */
       case '\\':
       {
-        if (pattern[i+1] != '\0')
+        E(pattern[i+1] == '\0');  /* trailing backslash is invalid */
+        /* Skip the escape-char '\\' */
+        i += 1;
+        /* ... and check the next */
+        switch (pattern[i])
         {
-          /* Skip the escape-char '\\' */
-          i += 1;
-          /* ... and check the next */
-          switch (pattern[i])
-          {
-            /* Meta-character: */
-            case 'd': {    re_compiled[j].type = DIGIT;            } break;
-            case 'D': {    re_compiled[j].type = NOT_DIGIT;        } break;
-            case 'w': {    re_compiled[j].type = ALPHA;            } break;
-            case 'W': {    re_compiled[j].type = NOT_ALPHA;        } break;
-            case 's': {    re_compiled[j].type = WHITESPACE;       } break;
-            case 'S': {    re_compiled[j].type = NOT_WHITESPACE;   } break;
+          /* Meta-character: */
+          case 'd': {    re_compiled[j].type = DIGIT;            } break;
+          case 'D': {    re_compiled[j].type = NOT_DIGIT;        } break;
+          case 'w': {    re_compiled[j].type = ALPHA;            } break;
+          case 'W': {    re_compiled[j].type = NOT_ALPHA;        } break;
+          case 's': {    re_compiled[j].type = WHITESPACE;       } break;
+          case 'S': {    re_compiled[j].type = NOT_WHITESPACE;   } break;
 
-            /* Escaped character, e.g. '.' or '$' */
-            default:
-            {
-              re_compiled[j].type = CHAR;
-              re_compiled[j].u.ch = pattern[i];
-            } break;
-          }
+          /* Escaped character, e.g. '.' or '$' */
+          default:
+          {
+            re_compiled[j].type = CHAR;
+            re_compiled[j].u.ch = pattern[i];
+          } break;
         }
-        /* '\\' as last char in pattern -> invalid regular expression. */
-/*
-        else
-        {
-          re_compiled[j].type = CHAR;
-          re_compiled[j].ch = pattern[i];
-        }
-*/
       } break;
 
       /* Character class: */
@@ -175,8 +171,6 @@ int re_match(re_t *re, const char* text, int *idx_out, int *len_out)
   regex_t *re_compiled = re->re_compiled;
   int matchlength = 0;
 
-  E(re_compiled == NULL);
-
   if (re_compiled[0].type == BEGIN)
   {
     if (matchpattern(&re_compiled[1], text, &matchlength))
@@ -198,10 +192,6 @@ int re_match(re_t *re, const char* text, int *idx_out, int *len_out)
 
       if (matchpattern(re_compiled, text, &matchlength))
       {
-        if (text[0] == '\0') {
-          return 0;
-        }
-
         if (idx_out) *idx_out = idx;
         if (len_out) *len_out = matchlength;
         return 1;
@@ -365,16 +355,16 @@ static int matchquestion(regex_t p, regex_t* re_compiled, const char* text, int*
 {
   if (p.type == UNUSED)
     return 1;
-  if (matchpattern(re_compiled, text, matchlength))
-      return 1;
-  if (*text && matchone(p, *text++))
+  if (*text && matchone(p, *text))
   {
-    if (matchpattern(re_compiled, text, matchlength))
+    if (matchpattern(re_compiled, text + 1, matchlength))
     {
       (*matchlength)++;
       return 1;
     }
   }
+  if (matchpattern(re_compiled, text, matchlength))
+      return 1;
   return 0;
 }
 
@@ -401,12 +391,6 @@ static int matchpattern(regex_t* re_compiled, const char* text, int* matchlength
     {
       return (text[0] == '\0');
     }
-/*  Branching is not working properly
-    else if (re_compiled[1].type == BRANCH)
-    {
-      return (matchpattern(re_compiled, text) || matchpattern(&re_compiled[2], text));
-    }
-*/
   (*matchlength)++;
   }
   while ((text[0] != '\0') && matchone(*re_compiled++, *text++));

@@ -1,5 +1,5 @@
 /* re.h - regular expression engine.
- * See https://github.com/fordsfords/err for documentation. */
+ * See https://github.com/fordsfords/re for documentation. */
 
 /* This work is dedicated to the public domain under CC0 1.0 Universal:
  * http://creativecommons.org/publicdomain/zero/1.0/
@@ -19,19 +19,13 @@
 #define RE_DOT_MATCHES_NEWLINE 1
 #endif
 
+#define MAX_CHAR_CLASS_LEN      256   /* Total char-class buffer for all classes in a pattern. */
+
 #include <stdio.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif /* __cplusplus */
-
-
-#define E(e_expr_) do { \
-  if (e_expr_) { \
-    fprintf(stderr, "ERROR [%s:%d]: '%s'\n", __FILE__, __LINE__, #e_expr_); \
-    exit(1); \
-  } \
-} while (0)
 
 
 /* Typedef'd pointer to get abstract datatype. */
@@ -48,6 +42,7 @@ typedef struct regex_s
 typedef struct re_s {
   int max_regexp_objects;
   regex_t *re_compiled;
+  unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];  /* Storage for character class contents. */
 } re_t;
 
 
