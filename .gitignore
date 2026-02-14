@@ -17,6 +17,7 @@ tmp.*
 # Executable
 a.out
 test_re
+test_char
 core.*
 
 # Prerequisites

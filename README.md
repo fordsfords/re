@@ -8,16 +8,15 @@ Small portable [Regular Expression](https://en.wikipedia.org/wiki/Regular_expres
 &bull; [re](#re)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Table of contents](#table-of-contents)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Introduction](#introduction)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [What I changed](#what-i-changed)  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [What Is Changed](#what-is-changed)  
+&nbsp;&nbsp;&nbsp;&nbsp;&bull; [Known Limitations](#known-limitations)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Regular Expression Syntax](#regular-expression-syntax)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [API](#api)  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [re_compile](#re_compile)  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [re_match](#re_match)  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [re_free](#re_free)  
-&nbsp;&nbsp;&nbsp;&nbsp;&bull; [Configuration](#configuration)  
-&nbsp;&nbsp;&nbsp;&nbsp;&bull; [Error Handling](#error-handling)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Example](#example)  
-&nbsp;&nbsp;&nbsp;&nbsp;&bull; [Known Limitations](#known-limitations)  
+&nbsp;&nbsp;&nbsp;&nbsp;&bull; [Error Handling](#error-handling)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [License](#license)  
 <!-- TOC created by '../mdtoc/mdtoc.pl ./README.md' (see https://github.com/fordsfords/mdtoc) -->
 <!-- mdtoc-end -->
@@ -32,29 +31,57 @@ Note that kokke's tiny-regex-c repo is [public domain](https://unlicense.org/).
 See [kokke's repo](https://github.com/kokke/tiny-regex-c) for more information about
 the original project.
 
-Big thanks to kokke for writing it,
-and to to Claude.ai for reviewing my changes and finding my bugs!
+Big thanks to kokke for writing it and putting it in the public domain,
+and to Claude.ai for assisting me!
+I hereby certify that I have personally reviewed and tested all code
+written by Claude.ai during this collaboration.
 
-### What I changed
+### What Is Changed
 
-I deviated from the original goal of zero malloc/free.
-I'm not writing for the embedded space anymore.
+I'm not writing for the embedded space, and I wanted a more convenient API.
 
 * `re_compile()` now mallocs a structure (two, actually).
-  Added API for `re_free()`.
+  - Added API for `re_free()`.
+  - This allows having multiple compiled patterns active.
 * The code is now thread-safe.
 * `re_match()` returns 1 for a match, 0 for non-match.
-  Match index and length are returned via output parameters.
+  - Match index and length are returned via output parameters.
 * Now uses `E()` error handler to report internal errors
   rather than silently counting them as non-matches.
 * Question mark is now "greedy".
+* Dot now matches carriage return but not newline.
+  - This matches what perl/python do by default.
+* `$` now matches at end of string or just before a trailing newline.
+  - THis matches perl/python default behavior.
 * General code cleanup.
 
 The same expression syntax is accepted.
 Almost all of the core code is unchanged;
-I am implicitly leveraging the deep testing done by kokke without
-doing it myself.
-I admit this is not best practice.
+I am implicitly leveraging kokke's deep testing without doing it myself;
+I admit this is not best practice (I should re-do it).
+
+## Known Limitations
+
+This module implements a useful subset of regular expression functionality.
+But it is not complete.
+
+* Alternation (`|`) is not supported.
+* No {m,n} quantifiers.
+* No support for capturing groups or named captures.
+* Anchors ^ and $ used mid-pattern produce undefined behavior instead of being treated correctly. 
+* The character class buffer has a compile-time maximum length of 256
+  (shared across all character classes in a single pattern).
+  Patterns that exceed this will trigger an error.
+* `E()` calls `exit(1)` on error. There is no way to recover from
+  a malformed pattern or allocation failure at runtime.
+  (This can be changed; see [Error Handling](#error-handling))
+* A variety of invalid patterns are not detected and instead just fail to match.
+  The caller is expected to pass in valid patterns.
+  - For example, dangling qualifiers (like "*" without a token in front of it).
+  - Another example: "(abc)|(xyz)" simply matches those literal characters;
+    it doesn't warn that it is using unsupported RE functionality.
+
+If you need a richer implementation, consider [PCRE](https://www.pcre.org/).
 
 ## Regular Expression Syntax
 
@@ -62,7 +89,7 @@ This is a small but useful subset of full regular expressions.
 
 | Pattern      | Description |
 |:-------------|:------------|
-| `.`          | Dot, matches any character (see [Configuration](#configuration) for newline behavior) |
+| `.`          | Dot, matches any character except newline (`\n`) |
 | `^`          | Start anchor, matches beginning of string |
 | `$`          | End anchor, matches end of string |
 | `*`          | Asterisk, match zero or more (greedy) |
@@ -84,9 +111,8 @@ allowing you to escape metacharacters like `\.`, `\*`, `\[`, etc.
 Remember that when coding a pattern in a C program, you need to escape the
 backslash. For example, to code the pattern "d+\.d+", you need to use:
 ```c
-re_t *re = re_compile("d+\\.d+", 50);
+re_t *re = re_compile("d+\\.d+");
 ```
-
 
 ## API
 
@@ -97,14 +123,10 @@ re_t *re = re_compile("d+\\.d+", 50);
 ### re_compile
 
 ```c
-re_t *re_compile(const char* pattern, int max_regexp_objects);
+re_t *re_compile(const char* pattern);
 ```
 
 Compiles a regex pattern string into an internal representation for matching.
-
-The `max_regexp_objects` parameter sets the size of the internal array
-used to hold the compiled pattern.
-A value roughly equal to the pattern length is typically sufficient.
 
 Returns a pointer to an allocated `re_t` structure.
 The caller must eventually pass this pointer to `re_free()`.
@@ -135,17 +157,27 @@ void re_free(re_t *re);
 
 Frees the memory allocated by `re_compile()`.
 
-## Compilation Option
-
-By default, the code builds with "." not matching
-`RE_DOT_MATCHES_NEWLINE` controls whether `.` matches newline
-characters (`\r` and `\n`).
-It defaults to 1 (dot matches newlines).
-Define it to 0 before including `re.h` if you want `.` to exclude newlines:
+## Example
 
 ```c
-#define RE_DOT_MATCHES_NEWLINE 0
 #include "re.h"
+
+int main() {
+  re_t *pattern = re_compile("[Hh]ello [Ww]orld\\s*[!]?");
+
+  int idx, len;
+  if (re_match(pattern, "ahem.. 'hello world !' ..", &idx, &len)) {
+    printf("match at idx %d, %d chars long.\n", idx, len);
+  }
+
+  /* You can also ignore the output parameters: */
+  if (re_match(pattern, "Hello World", NULL, NULL)) {
+    printf("matched.\n");
+  }
+
+  re_free(pattern);
+  return 0;
+}
 ```
 
 ## Error Handling
@@ -173,42 +205,14 @@ embedded systems generally don't have stderr defined.
 Feel free to replace `E()` with whatever you want.
 For example, you could change it to `E_GO()` and replace the
 `exit()` with `goto e_go`. Then include an `e_go:` label
-with proper cleanup and `return NULL`. Note that this
-just passes the buck of what to actually do to the caller.
+with proper cleanup and `return NULL`. Note that the caller
+has to then check for errors and ... do what? Recover? How?
 
-
-## Example
-
-```c
-#include "re.h"
-
-int main() {
-  re_t *pattern = re_compile("[Hh]ello [Ww]orld\\s*[!]?", 30);
-
-  int idx, len;
-  if (re_match(pattern, "ahem.. 'hello world !' ..", &idx, &len)) {
-    printf("match at idx %d, %d chars long.\n", idx, len);
-  }
-
-  /* You can also ignore the output parameters: */
-  if (re_match(pattern, "Hello World", NULL, NULL)) {
-    printf("matched.\n");
-  }
-
-  re_free(pattern);
-  return 0;
-}
-```
-
-## Known Limitations
-
-* Branching (`|`) is not supported.
-* No support for capturing groups or named captures.
-* The character class buffer has a compile-time maximum length of 256
-  (shared across all character classes in a single pattern).
-  Patterns that exceed this will trigger an error.
-* `E()` calls `exit(1)` on error. There is no way to recover from
-  a malformed pattern or allocation failure at runtime.
+This makes the most sense for an interactive program where the user
+enters the pattern - you don't want to exit if the user makes
+a mistake. But for a daemon or tool, the only advantage of
+passing back errors is that the caller could do its own cleanup
+(e.g. gracefully closing files) before exiting.
 
 ## License
 

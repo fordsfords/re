@@ -14,11 +14,6 @@
 #ifndef RE_H
 #define RE_H
 
-#ifndef RE_DOT_MATCHES_NEWLINE
-/* Define to 0 if you DON'T want '.' to match '\r' + '\n' */
-#define RE_DOT_MATCHES_NEWLINE 1
-#endif
-
 #define MAX_CHAR_CLASS_LEN      256   /* Total char-class buffer for all classes in a pattern. */
 
 #include <stdio.h>
@@ -47,7 +42,7 @@ typedef struct re_s {
 
 
 /* Compile regex string pattern. max_regexp_objects is roughly the pattern length. */
-re_t *re_compile(const char* pattern, int max_regexp_objects);
+re_t *re_compile(const char* pattern);
 void re_free(re_t *re);
 
 

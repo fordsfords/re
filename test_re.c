@@ -8,21 +8,13 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Simple error handling. */
-#define E(e_expr_) do { \
-  if (e_expr_) { \
-    fprintf(stderr, "ERROR [%s:%d]: '%s'\n", __FILE__, __LINE__, #e_expr_); \
-    exit(1); \
-  } \
-} while (0)
-
 static int tests_run = 0;
 static int tests_passed = 0;
 
 static void test_match(const char *desc, const char *pattern, const char *text,
                        int expect_idx, int expect_len) {
   tests_run++;
-  re_t *re = re_compile(pattern, 64);
+  re_t *re = re_compile(pattern);
   int idx = -1, len = -1;
   int matched = re_match(re, text, &idx, &len);
   re_free(re);
@@ -38,7 +30,7 @@ static void test_match(const char *desc, const char *pattern, const char *text,
 
 static void test_nomatch(const char *desc, const char *pattern, const char *text) {
   tests_run++;
-  re_t *re = re_compile(pattern, 64);
+  re_t *re = re_compile(pattern);
   int idx = -1, len = -1;
   int matched = re_match(re, text, &idx, &len);
   re_free(re);
@@ -71,6 +63,18 @@ int main() {
   test_match("dot basic", "h.llo", "hello", 0, 5);
   test_match("dot any char", "h.llo", "hxllo", 0, 5);
   test_nomatch("dot needs char", "h.llo", "hllo");
+  test_nomatch("dot excludes newline", "h.llo", "h\nllo");
+  test_match("dot matches cr", "h.llo", "h\rllo", 0, 5);
+  test_match("dot-star stops at newline", "a.*b", "a foo b\nxb", 0, 7);
+  test_nomatch("dot-star-dollar disrupted by newline", "a.*$", "a foo b\nxb");
+  test_match("dot-star-dollar works without newline", "a.*$", "a foo b", 0, 7);
+
+  printf("Dollar before trailing newline:\n");
+  test_match("$ before trailing newline", "foo$", "foo\n", 0, 3);
+  test_match("$ at true end", "foo$", "foo", 0, 3);
+  test_nomatch("$ not before non-trailing newline", "foo$", "foo\nbar");
+  test_match(".*$ before trailing newline", "a.*$", "a foo b\n", 0, 7);
+  test_match("^$ on lone newline", "^$", "\n", 0, 0);
 
   printf("Star (greedy):\n");
   test_match("star zero", "ab*c", "ac", 0, 2);
@@ -130,7 +134,7 @@ int main() {
   printf("NULL output parameters:\n");
   {
     tests_run++;
-    re_t *re = re_compile("hello", 64);
+    re_t *re = re_compile("hello");
     int matched = re_match(re, "say hello", NULL, NULL);
     re_free(re);
     if (matched) {

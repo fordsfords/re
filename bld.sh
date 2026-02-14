@@ -11,6 +11,7 @@ for F in $MD_FILES; do :
   fi
 done
 
-rm -f test_re
+rm -f test_re test_char
 
 gcc -Wall -g -o test_re -pthread test_re.c re.c;  if [ $? -ne 0 ]; then exit 1; fi
+gcc -Wall -g -o test_char -pthread test_char.c re.c;  if [ $? -ne 0 ]; then exit 1; fi

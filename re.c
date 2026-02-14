@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 /* Simple error handling. */
 #define E(e_expr_) do { \
@@ -45,10 +46,11 @@ static int matchdot(char c);
 static int ismetachar(char c);
 
 
-re_t *re_compile(const char* pattern, int max_regexp_objects)
+re_t *re_compile(const char* pattern)
 {
-  re_t *re = (re_t *)malloc(sizeof(re_t));  E(re == NULL);
-  regex_t *re_compiled = (regex_t *)malloc(sizeof(regex_t) * max_regexp_objects);  E(re_compiled == NULL);
+  int max_regexp_objects = strlen(pattern) + 1;
+  re_t *re = (re_t *)calloc(1, sizeof(re_t));  E(re == NULL);
+  regex_t *re_compiled = (regex_t *)calloc(max_regexp_objects, sizeof(regex_t));
   re->max_regexp_objects = max_regexp_objects;
   re->re_compiled = re_compiled;
 
@@ -206,15 +208,15 @@ int re_match(re_t *re, const char* text, int *idx_out, int *len_out)
 /* Private functions: */
 static int matchdigit(char c)
 {
-  return isdigit(c);
+  return isdigit((unsigned char)c);
 }
 static int matchalpha(char c)
 {
-  return isalpha(c);
+  return isalpha((unsigned char)c);
 }
 static int matchwhitespace(char c)
 {
-  return isspace(c);
+  return isspace((unsigned char)c);
 }
 static int matchalphanum(char c)
 {
@@ -232,12 +234,7 @@ static int matchrange(char c, const char* str)
 }
 static int matchdot(char c)
 {
-#if defined(RE_DOT_MATCHES_NEWLINE) && (RE_DOT_MATCHES_NEWLINE == 1)
-  (void)c;
-  return 1;
-#else
-  return c != '\n' && c != '\r';
-#endif
+  return (c != '\n');
 }
 static int ismetachar(char c)
 {
@@ -389,7 +386,7 @@ static int matchpattern(regex_t* re_compiled, const char* text, int* matchlength
     }
     else if ((re_compiled[0].type == END) && re_compiled[1].type == UNUSED)
     {
-      return (text[0] == '\0');
+      return (text[0] == '\0' || (text[0] == '\n' && text[1] == '\0'));
     }
   (*matchlength)++;
   }
