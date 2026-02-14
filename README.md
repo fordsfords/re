@@ -65,10 +65,10 @@ I admit this is not best practice (I should re-do it).
 This module implements a useful subset of regular expression functionality.
 But it is not complete.
 
-* Alternation (`|`) is not supported.
-* No {m,n} quantifiers.
+* Alternation `|` is not supported.
+* No `{m,n}` quantifiers.
 * No support for capturing groups or named captures.
-* Anchors ^ and $ used mid-pattern produce undefined behavior instead of being treated correctly. 
+* Anchors `^` and `$` used mid-pattern produce undefined behavior instead of being treated correctly. 
 * The character class buffer has a compile-time maximum length of 256
   (shared across all character classes in a single pattern).
   Patterns that exceed this will trigger an error.
