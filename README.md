@@ -17,6 +17,7 @@ Small portable [Regular Expression](https://en.wikipedia.org/wiki/Regular_expres
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; [re_free](#re_free)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Example](#example)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [Error Handling](#error-handling)  
+&nbsp;&nbsp;&nbsp;&nbsp;&bull; [test_char](#test_char)  
 &nbsp;&nbsp;&nbsp;&nbsp;&bull; [License](#license)  
 <!-- TOC created by '../mdtoc/mdtoc.pl ./README.md' (see https://github.com/fordsfords/mdtoc) -->
 <!-- mdtoc-end -->
@@ -38,27 +39,42 @@ written by Claude.ai during this collaboration.
 
 ### What Is Changed
 
-I'm not writing for the embedded space, and I wanted a more convenient API.
+I'm not writing for the embedded space, so my goals are a bit different than kkoke's.
 
-* `re_compile()` now mallocs a structure (two, actually).
+1. I want a more convenient API for the type of code I write.
+   * Able to have multiple compiled patterns.
+   * Able to treat match return value as boolean.
+1. Thread safe.
+1. Reproduce the default regular expression behavior of Perl and Python.
+1. I value time efficiency over than space efficiency.
+
+Here are the specific changes I made.
+
+* `re_compile()` now uses malloc to support multiple compiled patterns.
   - Added API for `re_free()`.
-  - This allows having multiple compiled patterns active.
-* The code is now thread-safe.
+* `re_match()` now requires a compiled pattern. `re_matchp()` is omitted.
+  - Re-compiling the same pattern repeatedly in a loop wastes time.
+* The code is now thread-safe (no static locals).
 * `re_match()` returns 1 for a match, 0 for non-match.
   - Match index and length are returned via output parameters.
-* Now uses `E()` error handler to report internal errors
+* Now uses `E()` error handler macro to report internal errors
   rather than silently counting them as non-matches.
+  (See [Error Handling](#error-handling).)
 * Question mark is now "greedy".
+  - This matches what perl/python do by default.
 * Dot now matches carriage return but not newline.
   - This matches what perl/python do by default.
 * `$` now matches at end of string or just before a trailing newline.
-  - THis matches perl/python default behavior.
+  - This matches perl/python default behavior.
 * General code cleanup.
+
+Since I changed calling sequences of APIs, I started a fresh project
+rather than forking the kokke's original.
 
 The same expression syntax is accepted.
 Almost all of the core code is unchanged;
-I am implicitly leveraging kokke's deep testing without doing it myself;
-I admit this is not best practice (I should re-do it).
+I am implicitly leveraging kokke's deep testing without doing it myself
+(I admit this is not best practice; I should re-do it).
 
 ## Known Limitations
 
@@ -74,10 +90,11 @@ But it is not complete.
   Patterns that exceed this will trigger an error.
 * `E()` calls `exit(1)` on error. There is no way to recover from
   a malformed pattern or allocation failure at runtime.
-  (This can be changed; see [Error Handling](#error-handling))
+  (This can be changed; see [Error Handling](#error-handling).)
 * A variety of invalid patterns are not detected and instead just fail to match.
   The caller is expected to pass in valid patterns.
-  - For example, dangling qualifiers (like "*" without a token in front of it).
+  - For example, dangling qualifiers (like "*" without a token in front of it)
+    is not flagged as invalid.
   - Another example: "(abc)|(xyz)" simply matches those literal characters;
     it doesn't warn that it is using unsupported RE functionality.
 
@@ -213,6 +230,11 @@ enters the pattern - you don't want to exit if the user makes
 a mistake. But for a daemon or tool, the only advantage of
 passing back errors is that the caller could do its own cleanup
 (e.g. gracefully closing files) before exiting.
+
+## test_char
+
+The `test_char.c` and `test_char.pl` programs are intended to compare behavior
+between `re` and Perl for a variety of regular expressions.
 
 ## License
 
