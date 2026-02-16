@@ -50,7 +50,7 @@ re_t *re_compile(const char* pattern)
 {
   int max_regexp_objects = (int)strlen(pattern) + 1;
   re_t *re = (re_t *)calloc(1, sizeof(re_t));  E(re == NULL);
-  regex_t *re_compiled = (regex_t *)calloc(max_regexp_objects, sizeof(regex_t));
+  regex_t *re_compiled = (regex_t *)calloc(max_regexp_objects, sizeof(regex_t));  E(re_compiled == NULL);
   re->max_regexp_objects = max_regexp_objects;
   re->re_compiled = re_compiled;
 
@@ -100,6 +100,14 @@ re_t *re_compile(const char* pattern)
                          re_compiled[j].u.ch = '\r';             } break;
           case 't': {    re_compiled[j].type = CHAR;
                          re_compiled[j].u.ch = '\t';             } break;
+          case 'x': {
+            E(!isxdigit((unsigned char)pattern[i+1]) || !isxdigit((unsigned char)pattern[i+2]));
+            unsigned int hex_val;
+            sscanf(&pattern[i+1], "%2x", &hex_val);
+            re_compiled[j].type = CHAR;
+            re_compiled[j].u.ch = (unsigned char)hex_val;
+            i += 2;
+          } break;
 
           /* Escaped character, e.g. '.' or '$' */
           default:
@@ -135,7 +143,7 @@ re_t *re_compile(const char* pattern)
           if (pattern[i] == '\\')
           {
             E(pattern[i+1] == 0);
-            /* Collapse \n, \r, \t to the actual character value. */
+            /* Collapse \n, \r, \t, \xNN to the actual character value. */
             if (pattern[i+1] == 'n' || pattern[i+1] == 'r' || pattern[i+1] == 't')
             {
               E(ccl_bufidx >= MAX_CHAR_CLASS_LEN);
@@ -143,6 +151,16 @@ re_t *re_compile(const char* pattern)
                                (pattern[i+1] == 'r') ? '\r' : '\t';
               ccl_buf[ccl_bufidx++] = collapsed;
               i++;  /* skip past the letter */
+              continue;
+            }
+            if (pattern[i+1] == 'x')
+            {
+              E(!isxdigit((unsigned char)pattern[i+2]) || !isxdigit((unsigned char)pattern[i+3]));
+              E(ccl_bufidx >= MAX_CHAR_CLASS_LEN);
+              unsigned int hex_val;
+              sscanf(&pattern[i+2], "%2x", &hex_val);
+              ccl_buf[ccl_bufidx++] = (unsigned char)hex_val;
+              i += 3;  /* skip past x and two hex digits */
               continue;
             }
             E(ccl_bufidx >= MAX_CHAR_CLASS_LEN - 1);

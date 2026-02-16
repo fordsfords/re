@@ -159,6 +159,21 @@ int main() {
   test_match("\\t in inverted class", "[^\\t]", "\tx", 1, 1);
   test_nomatch("\\t inv class no match", "[^\\t]", "\t");
 
+  printf("Hex escapes (\\xNN):\n");
+  test_match("\\x0a matches newline", "\\x0a", "hello\nworld", 5, 1);
+  test_match("\\x0A matches newline (uppercase)", "\\x0A", "hello\nworld", 5, 1);
+  test_match("\\x09 matches tab", "\\x09", "hello\tworld", 5, 1);
+  test_match("\\x0d matches cr", "\\x0d", "hello\rworld", 5, 1);
+  test_match("\\x41 matches A", "\\x41", "xAz", 1, 1);
+  test_nomatch("\\x41 does not match a", "\\x41", "xaz");
+  test_match("\\x08 matches backspace", "\\x08", "x\010y", 1, 1);
+  test_match("hex in class", "[\\x09\\x0a]", "hello\tworld", 5, 1);
+  test_match("hex in class newline", "[\\x09\\x0a]", "hello\nworld", 5, 1);
+  test_nomatch("hex class no match", "[\\x09\\x0a]", "hello world");
+  test_match("hex in inverted class", "[^\\x09]", "\tx", 1, 1);
+  test_match("hex sequence", "\\x0d\\x0a", "line1\r\nline2", 5, 2);
+  test_match("hex range", "[\\x61-\\x7a]+", "Hello world", 1, 4);  /* 0x61='a', 0x7a='z' */
+
   printf("\n%d/%d tests passed.\n", tests_passed, tests_run);
   return (tests_passed == tests_run) ? 0 : 1;
 }

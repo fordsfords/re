@@ -67,14 +67,14 @@ Here are the specific changes I made.
   - This matches what perl/python do by default.
 * `$` now matches at end of string or just before a trailing newline.
   - This matches perl/python default behavior.
-* Added `\t`, `\r`, and `\n` to match tab, carriage return, and newline.
+* Added `\t`, `\r`, `\n`, and `\xNN` to match tab, carriage return, newline, and hex bytes.
 * General code cleanup.
 
 Since I changed calling sequences of APIs, I started a fresh project
 rather than forking the kokke's original.
 
 The same expression syntax is accepted.
-Almost all of the core code is unchanged;
+Most of the core code is unchanged;
 I am implicitly leveraging kokke's deep testing without doing it myself
 (I admit this is not best practice; I should re-do it).
 
@@ -84,7 +84,14 @@ This module implements a useful subset of regular expression functionality.
 But it is not complete.
 
 * Alternation `|` is not supported.
+* Grouping `(abc)*` is not supported.
+* Lookahead or lookbehind `(?=...)`, `(?!...)`, `(?<=...)`, `(?<!...)` are not supported.
+* No multi-line mode.
+* Case-insensitive matching not supported
+  (you can lower-case your string before calling `re_match()`).
 * No `{m,n}` quantifiers.
+* No non-greedy quantifiers.
+* Word boundary `\b` is not supported.
 * No support for capturing groups or named captures.
 * Anchors `^` and `$` used mid-pattern produce undefined behavior instead of being treated correctly. 
 * The character class buffer has a compile-time maximum length of 256
@@ -110,32 +117,35 @@ This is a small but useful subset of full regular expressions.
 |:-------------|:------------|
 | `.`          | Dot, matches any character except newline (`\n`) |
 | `^`          | Start anchor, matches beginning of string |
-| `$`          | End anchor, matches end of string |
+| `$`          | End anchor, matches end of string or just before a trailing newline |
 | `*`          | Asterisk, match zero or more (greedy) |
 | `+`          | Plus, match one or more (greedy) |
 | `?`          | Question, match zero or one (greedy) |
 | `[abc]`      | Character class, match if one of {'a', 'b', 'c'} |
 | `[^abc]`     | Inverted class, match if NOT one of {'a', 'b', 'c'} |
-| `[a-zA-Z]`   | Character ranges, the character set of the ranges { a-z \| A-Z } |
+| `[a-zA-Z]`   | Character ranges, the character set of the ranges |
 | `\s`         | Whitespace, \t \f \r \n \v and spaces |
 | `\S`         | Non-whitespace |
-| `\w`         | Alphanumeric, [a-zA-Z0-9_] |
+| `\w`         | Alphanumeric (locale-sensitive) |
 | `\W`         | Non-alphanumeric |
 | `\d`         | Digits, [0-9] |
 | `\D`         | Non-digits |
 | `\t`         | Tab character (0x09) |
 | `\n`         | Newline character (0x0A) |
 | `\r`         | Carriage return character (0x0D) |
+| `\xNN`       | Hex escape, matches the byte with value NN (two hex digits) |
 
-The sequences `\t`, `\n`, and `\r` match their respective control characters.
-These escape sequences also work inside character classes, e.g. `[\n\t]`.
-A backslash before any other character matches that character literally,
-allowing you to escape metacharacters like `\.`, `\*`, `\[`, etc.
-
-Remember that when coding a pattern in a C program, you need to escape the
-backslash. For example, to code the pattern "d+\.d+", you need to use:
+Notes:
+* The sequences `\t`, `\n`, and `\r` match their respective control characters.
+* The sequence `\xNN` matches the byte with hex value NN (e.g. `\x08` for backspace).
+* These escape sequences also work inside character classes, e.g. `[\n\t]` or `[\x01-\x1f]`.
+* Note that `\x00` won't match a nul, it terminates the string. (This is C, remember?)
+* A backslash before any other character matches that character literally,
+  allowing you to escape metacharacters like `\.`, `\*`, `\[`, etc.
+* Remember that when coding a pattern in a C program, you need to escape the
+  backslash. For example, to code the pattern "d+\.d+", you need to use:
 ```c
-re_t *re = re_compile("d+\\.d+");
+  re_t *re = re_compile("d+\\.d+");
 ```
 
 ## API
