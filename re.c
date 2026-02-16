@@ -93,6 +93,14 @@ re_t *re_compile(const char* pattern)
           case 's': {    re_compiled[j].type = WHITESPACE;       } break;
           case 'S': {    re_compiled[j].type = NOT_WHITESPACE;   } break;
 
+          /* Escaped literal characters: */
+          case 'n': {    re_compiled[j].type = CHAR;
+                         re_compiled[j].u.ch = '\n';             } break;
+          case 'r': {    re_compiled[j].type = CHAR;
+                         re_compiled[j].u.ch = '\r';             } break;
+          case 't': {    re_compiled[j].type = CHAR;
+                         re_compiled[j].u.ch = '\t';             } break;
+
           /* Escaped character, e.g. '.' or '$' */
           default:
           {
@@ -126,8 +134,18 @@ re_t *re_compile(const char* pattern)
         {
           if (pattern[i] == '\\')
           {
-            E(ccl_bufidx >= MAX_CHAR_CLASS_LEN - 1);
             E(pattern[i+1] == 0);
+            /* Collapse \n, \r, \t to the actual character value. */
+            if (pattern[i+1] == 'n' || pattern[i+1] == 'r' || pattern[i+1] == 't')
+            {
+              E(ccl_bufidx >= MAX_CHAR_CLASS_LEN);
+              char collapsed = (pattern[i+1] == 'n') ? '\n' :
+                               (pattern[i+1] == 'r') ? '\r' : '\t';
+              ccl_buf[ccl_bufidx++] = collapsed;
+              i++;  /* skip past the letter */
+              continue;
+            }
+            E(ccl_bufidx >= MAX_CHAR_CLASS_LEN - 1);
             ccl_buf[ccl_bufidx++] = pattern[i++];
           }
           else E(ccl_bufidx >= MAX_CHAR_CLASS_LEN);

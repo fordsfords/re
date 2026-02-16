@@ -46,6 +46,7 @@ I'm not writing for the embedded space, so my goals are a bit different than kko
    * Able to treat match return value as boolean.
 1. Thread safe.
 1. Reproduce the default regular expression behavior of Perl and Python.
+   * Add additional functionality when it is easy to do.
 1. I value time efficiency over than space efficiency.
 
 Here are the specific changes I made.
@@ -66,6 +67,7 @@ Here are the specific changes I made.
   - This matches what perl/python do by default.
 * `$` now matches at end of string or just before a trailing newline.
   - This matches perl/python default behavior.
+* Added `\t`, `\r`, and `\n` to match tab, carriage return, and newline.
 * General code cleanup.
 
 Since I changed calling sequences of APIs, I started a fresh project
@@ -121,7 +123,12 @@ This is a small but useful subset of full regular expressions.
 | `\W`         | Non-alphanumeric |
 | `\d`         | Digits, [0-9] |
 | `\D`         | Non-digits |
+| `\t`         | Tab character (0x09) |
+| `\n`         | Newline character (0x0A) |
+| `\r`         | Carriage return character (0x0D) |
 
+The sequences `\t`, `\n`, and `\r` match their respective control characters.
+These escape sequences also work inside character classes, e.g. `[\n\t]`.
 A backslash before any other character matches that character literally,
 allowing you to escape metacharacters like `\.`, `\*`, `\[`, etc.
 

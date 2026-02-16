@@ -144,6 +144,21 @@ int main() {
     }
   }
 
+  printf("Escaped literal characters (\\n \\r \\t):\n");
+  test_match("\\n matches newline", "\\n", "hello\nworld", 5, 1);
+  test_match("\\r matches cr", "\\r", "hello\rworld", 5, 1);
+  test_match("\\t matches tab", "\\t", "hello\tworld", 5, 1);
+  test_nomatch("\\n does not match tab", "\\n", "hello\tworld");
+  test_nomatch("\\t does not match space", "\\t", "hello world");
+  test_match("\\n in class", "[\\n\\t]", "hello\nworld", 5, 1);
+  test_match("\\t in class", "[\\n\\t]", "hello\tworld", 5, 1);
+  test_nomatch("\\n\\t class no match", "[\\n\\t]", "hello world");
+  test_match("\\r\\n sequence", "\\r\\n", "line1\r\nline2", 5, 2);
+  test_match("dot does not match newline but \\n does", "\\n", "\n", 0, 1);
+  test_nomatch("dot vs newline sanity", ".", "\n");
+  test_match("\\t in inverted class", "[^\\t]", "\tx", 1, 1);
+  test_nomatch("\\t inv class no match", "[^\\t]", "\t");
+
   printf("\n%d/%d tests passed.\n", tests_passed, tests_run);
   return (tests_passed == tests_run) ? 0 : 1;
 }
