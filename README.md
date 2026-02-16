@@ -107,7 +107,8 @@ But it is not complete.
   - Another example: "(abc)|(xyz)" simply matches those literal characters;
     it doesn't warn that it is using unsupported RE functionality.
 
-If you need a richer implementation, consider [PCRE](https://www.pcre.org/).
+If you need a richer implementation, consider [PCRE](https://www.pcre.org/) or
+[Google's RE2](https://github.com/google/re2).
 
 ## Regular Expression Syntax
 
